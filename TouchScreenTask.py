@@ -6,12 +6,9 @@ import random
 import copy
 import random
 from random import randrange
-global date
-global identifier
-global State
-global trialCount
 global nosepoke
-nosepoke = 0
+global fileName
+
 
 GPIO.setup(18, GPIO.IN,pull_up_down=GPIO.PUD_DOWN) #nosepoke
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #left screen in
@@ -99,24 +96,22 @@ def DataGrab():
     return(Name, Date, trials, Number, ITIs, hold1,hold2)
 
 def EventChecker():
-    #print('in event checker')
-    event_list = []
+    eventList = []
     global nosepoke
     if GPIO.input(18) and nosepoke == 0:
-        event_list.append('nosepoke on')
+        eventList.append('nosepoke on')
         nosepoke = 1
     if GPIO.input(18) == False and nosepoke == 1:
-        event_list.append('nosepoke off')
+        eventList.append('nosepoke off')
         nosepoke = 0
     if GPIO.input(22):
-        event_list.append('left screen')
+        eventList.append('left screen')
     if GPIO.input(12):
-        event_list.append('right screen')
-    Record(event_list)
+        eventList.append('right screen')
+    Record(eventList)
     return()
 
 def Feeder(FeederNumber, PelletNumber):
-    #print('in feeder')
     if FeederNumber == 1:
         control = 23
     if FeederNumber == 2:
@@ -137,20 +132,17 @@ def ScreensOff():
     return
 
 def Record(entry):
-    global date
-    global identifier
-    #print('in record entry')
-    new_entry = entry
-    current_time = time.time()
-    text_file = open(str(identifier) + str(date), "a")
-    while len(new_entry) > 0:
-        text_file.write(str(current_time) + "   " + str(new_entry[0]) + '\n')
-        del(new_entry[0])
-    text_file.close()
+    global fileName
+    newEntry = entry
+    currentTime = time.time()
+    textFile = open(fileName, "a")
+    while len(newEntry) > 0:
+        textFile.write(str(currentTime) + "   " + str(newEntry[0]) + '\n')
+        del(newEntry[0])
+    textFile.close()
     return
 
 def randomList(sampleList):
-    #print('in randomList')
     randomList = []
     tempList = copy.deepcopy(sampleList)
     while len(tempList) > 0:
@@ -160,12 +152,10 @@ def randomList(sampleList):
     return(randomList)
 
 def LeftScreenControl(offer):
-    #print('in leftscreen')
-    input_signal = list(str(bin(offer)[2:]))
-    output = input_signal[::-1]
+    inputSignal = list(str(bin(offer)[2:]))
+    output = inputSignal[::-1]
     while len(output) < 4:
         output.append('0')
-        #print(output)
     if output[0] == '1':
         GPIO.output(5, GPIO.HIGH)
     if output[1] == '1':
@@ -182,12 +172,10 @@ def LeftScreenControl(offer):
     return
 
 def RightScreenControl(offer):
-    #print('in rightscreen')
-    input_signal = list(str(bin(offer)[2:]))
-    output = input_signal[::-1]
+    inputSignal = list(str(bin(offer)[2:]))
+    output = inputSignal[::-1]
     while len(output) < 4:
         output.append('0')
-        #print(output)
     if (output[0]) == '1':
         GPIO.output(16, GPIO.HIGH)
     if (output[1]) == '1':
@@ -204,7 +192,7 @@ def RightScreenControl(offer):
     return
 
 def trialList(trials,number):
-    trial_list = []
+    trialList = []
     Trials = trials
     Number = number
     listplace = 0
@@ -212,29 +200,17 @@ def trialList(trials,number):
         count = 0
         while count < Number[listplace]:
             selection = copy.deepcopy(Trials[listplace])
-            trial_list.append(selection)
+            trialList.append(selection)
             if selection[2] == 0:
                 Trials[listplace][2] = 1
             elif selection[2] == 1:
                 Trials[listplace][2] = 0
             count = count + 1
         listplace = listplace + 1
-    return(trial_list)
-'''
-def ITIGetter():
-    print('in ITIGetter')
-    firstList = []
-    print("Please enter at least as many ITI's as trials, even if you have to repeat. Will fix later. ")
-    ITINumber = int(input("How many different ITIs would you like to use?: "))
-    while ITINumber > 0:
-        newITI = int(input("Please enter an ITI: "))
-        firstList.append(newITI)
-        ITINumber = ITINumber - 1
-    return(firstList)
-'''
+    return(trialList)
+
 def StateOne(thisITI,currentTrial):
-    global State
-    #print('in state 1')
+    State = 1
     if currentTrial[2] == 0:
         Record(['Offer (R/L): ' + str(currentTrial[1]) +'/'+str(currentTrial[0])])
         LeftScreenControl(currentTrial[0])
@@ -243,13 +219,16 @@ def StateOne(thisITI,currentTrial):
         Record(['Offer (R/L): ' + str(currentTrial[0]) +'/'+str(currentTrial[1])])
         LeftScreenControl(currentTrial[1])
         RightScreenControl(currentTrial[0])
-    time.sleep(thisITI)
+    t0 = time.time()
+    timer = 0
+    while timer < thisITI:
+        timer = time.time() - t0
+        EventChecker()
     State = 2
-    return
+    return(State)
 
 def StateTwo():
-    global State
-    #print('in state 2')
+    State = 2
     GPIO.output(4, GPIO.HIGH)
     t0 = time.time()
     timeout = 1
@@ -261,10 +240,10 @@ def StateTwo():
             State = 3
     if State == 1:
         GPIO.output(4, GPIO.LOW)
-    return
+    return(State)
 
 def StateThree(hold1):
-    global State
+    State = 3
     holdtime = hold1
     poketime = 0
     t0 = time.time()
@@ -275,10 +254,10 @@ def StateThree(hold1):
         State = 4
     else:
          State = 2
-    return
+    return(State)
 
 def StateFour(hold2):
-    global State
+    State = 4
     t0 = time.time()
     holdTime = 0
     screenHold = hold2
@@ -292,20 +271,18 @@ def StateFour(hold2):
     elif holdTime >= screenHold:
         State = 5
     GPIO.output(4, GPIO.LOW)
-    return
+    return(State)
 
 def StateFive(currentTrial):
-    global State
     reward = currentTrial
-    #print('in state 5')
     inputWait = 10 #this is how long the screens stay on waiting for input
     t0 = time.time()
-    time_elapsed = 0
+    timeElapsed = 0
     State = 2
-    while time_elapsed < inputWait:
-        time_elapsed = time.time() - t0
+    while timeElapsed < inputWait:
+        timeElapsed = time.time() - t0
         if GPIO.input(22):
-            time_elapsed = inputWait + 1
+            timeElapsed = inputWait + 1
             entry = ['Chose left']
             if reward[2] == 0:
                 ScreensOff()
@@ -316,7 +293,7 @@ def StateFive(currentTrial):
             Record(entry)
             State = 6
         if GPIO.input(12):
-            time_elapsed = inputWait + 1
+            timeElapsed = inputWait + 1
             entry = ['Chose right']
             if reward[2] == 0:
                 ScreensOff()
@@ -326,10 +303,9 @@ def StateFive(currentTrial):
                 Feeder(1, reward[0])
             Record(entry)
             State = 6
-    return
+    return(State)
            
-def BlockLoop(sampleList, itiList,Number,hold1,hold2):
-    global trialCount
+def BlockLoop(sampleList, itiList,Number,hold1,hold2,trialCount):
     global State
     Hold1=hold1
     Hold2=hold2
@@ -338,45 +314,44 @@ def BlockLoop(sampleList, itiList,Number,hold1,hold2):
     sampleList1 = copy.deepcopy(sampleList)
     itiList1 = copy.deepcopy(itiList)
     randomBlock = randomList(sampleList1)
-    #print(randomBlock)
     trialITI = randomList(itiList1)
     for i in randomBlock:
-        current_input = 0
         currentTrial = i
         thisITI = trialITI[Count]
         State = 1
         while State < 6:
             if State ==1:
-                StateOne(thisITI,currentTrial)
+                State = StateOne(thisITI,currentTrial)
                 EventChecker()
             if State == 2:
-                StateTwo()
+                State = StateTwo()
                 EventChecker()
             if State == 3:
-                StateThree(Hold1)
+                State = StateThree(Hold1)
                 EventChecker()
             if State == 4:
-                StateFour(Hold2)
+                State = StateFour(Hold2)
                 EventChecker()
             if State == 5:
-                StateFive(currentTrial)
+                State = StateFive(currentTrial)
                 EventChecker()
         Count = Count + 1
         trialCount = trialCount+1
-    return
+    return(trialCount)
 
 def MainLoop():
-    global trialCount
-    global date
-    global identifier
+    global fileName
+    global nosepoke
+    nosepoke = 0
     ScreensOn()
     ScreensOff()
     identifier, date, trials,Number,itiList,hold1,hold2 = DataGrab()
+    fileName = str(date)+str(identifier)
     sampleList = trialList(trials,Number)
     trialCount = 0
-    text_file = open(str(identifier) + str(date), "w")
-    text_file.close()
+    textFile = open(fileName, "w")
+    textFile.close()
     while trialCount < 200:
-        BlockLoop(sampleList, itiList, Number,hold1,hold2)
+        trialCount = BlockLoop(sampleList, itiList, Number,hold1,hold2,trialCount)
     return
 MainLoop()
