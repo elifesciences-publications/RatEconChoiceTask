@@ -6,8 +6,8 @@ import random
 import copy
 import random
 from random import randrange
-global nosepoke
-global fileName
+global nosepoke  #holds current state of the nosepoke
+global fileName #name of the datafile, extracted from settings
 
 
 GPIO.setup(18, GPIO.IN,pull_up_down=GPIO.PUD_DOWN) #nosepoke
@@ -26,6 +26,17 @@ GPIO.setup(23, GPIO.OUT) #feeder one
 GPIO.setup(24, GPIO.OUT) #feeder two
 
 def trialParse(line):
+    """Grabs and formats the trial list from the settings file.
+
+    Takes a line of text formatted as ratios (such as 1/2,3/4,5/6)
+    and puts them into an array with a randomized binary value. In
+    the example case, it might return [[1,2,0],[3,4,1],[5,6,1]].
+    
+    Args:
+       line: the current line of settings.txt that DataGrab() is working on
+    Returns:
+       offerlist: a list of ratios to be ordered and passed to the touchscreens
+    """
     offerList = []
     entry = []
     selection = ''
@@ -52,7 +63,16 @@ def trialParse(line):
     return(offerList)
 
 def Parse(line):
-    offerList = []
+    """Takes in non-trial data from the settings file.
+
+    Arranges the information in whatever line is passed into a list of integers.
+
+    Args:
+       line: One line of text presumably from settings.txt
+    Returns:
+       newList: A list of integers extracted from the line arg
+    """
+    newList = []
     selection = ''
     parseline = []
     parseline = list(line)
@@ -60,15 +80,29 @@ def Parse(line):
     for i in parseline:
         if i == ',':
             entry = copy.deepcopy(selection)
-            offerList.append(int(entry))
+            newList.append(int(entry))
             selection = ''
         elif i.isdigit():
             selection = selection + i
-    offerList.append(int(selection))
-    return(offerList)
+    newList.append(int(selection))
+    return(newList)
 
 def DataGrab():
-    lineswitch = 0
+    """Pulls setup data for the session from a file called settings.txt in the same directory.
+
+    Looks through Settings.txt line by line, extracting a relevant parameter from each
+    and operating on each differently according to the sequence in which they are arranged.
+
+    Returns:
+       Name: the name of the animal being run, should be 4 characters
+       Date: the date, should again be 4 characters (0221 being february 21st)
+       trials: a list of the desired ratios for the experimental trials
+       Number: the number of each corresponding ratio that should occur in each block
+       ITIs: a list of inter-trial intervals
+       hold1: required nosepoke with the screens off
+       hold2: required nosepoke with the screens on
+    """
+    lineswitch = 0 
     hold1=0
     hold2=0
     Name = ''
@@ -96,6 +130,12 @@ def DataGrab():
     return(Name, Date, trials, Number, ITIs, hold1,hold2)
 
 def EventChecker():
+    """Checks for screen touches and nosepokes and unpokes.
+
+    Lookas at the three GPIO pins associated with the left screen, the
+    right screen, and the nosepoke, passing any changes or activations
+    to the Record() function for storage in the data file.
+    """
     eventList = []
     global nosepoke
     if GPIO.input(18) and nosepoke == 0:
@@ -112,6 +152,17 @@ def EventChecker():
     return()
 
 def Feeder(FeederNumber, PelletNumber):
+    """Turns on a Feeder for enough time to disburse the apprpriate amount of pellets.
+
+    Turns on one of two GPIO pins connected to feeders for a number of seconds equal to
+    .8*reward size.
+
+    Args:
+       FeederNumber: Takes either 1 or 2, which in this case represent the two feeders
+       with different types of reward in them.
+       PelletNumber: The number of pellets that the rats are going to be rewarded with
+       for their selection
+    """
     if FeederNumber == 1:
         control = 23
     if FeederNumber == 2:
@@ -132,6 +183,14 @@ def ScreensOff():
     return
 
 def Record(entry):
+    """Writes event(s) to the data file.
+
+    Takes a list of event(s) and writes them with a timestamp to the current working
+    data file, in this case a text file named after the global str fileName.
+
+    Args:
+       entry: a list of one or more events to be written to the data file
+    """
     global fileName
     newEntry = entry
     currentTime = time.time()
@@ -143,6 +202,16 @@ def Record(entry):
     return
 
 def randomList(sampleList):
+    """Takes a list and randomizes the order, returning the randomized list.
+
+    Takes a list first cloning it then randomizing it, leaving the original
+    list unchanged.
+    
+    Args:
+       sampleList: list that needs shuffling.
+    Returns:
+       randomList: A randomized version of the original sampleList.
+    """
     randomList = []
     tempList = copy.deepcopy(sampleList)
     while len(tempList) > 0:
@@ -152,6 +221,13 @@ def randomList(sampleList):
     return(randomList)
 
 def LeftScreenControl(offer):
+    """Sends the signal for what is to be displayed on the left screen to the arduino
+
+    Takes a number corresponding to a given offer and converts it to binary, before
+    sending each bit of the binary out through a different GPIO pin
+    Args:
+       offer: A number corresponding to a cue to be displayed on a touchscreen
+    """
     inputSignal = list(str(bin(offer)[2:]))
     output = inputSignal[::-1]
     while len(output) < 4:
@@ -172,6 +248,13 @@ def LeftScreenControl(offer):
     return
 
 def RightScreenControl(offer):
+    """Sends the signal for what is to be displayed on the right screen to the arduino.
+
+    Takes a number corresponding to a given offer and converts it to binary, before
+    sending each bit of the binary out through a different GPIO pin.
+    Args:
+       offer: A number corresponding to a cue to be displayed on a touchscreen
+    """
     inputSignal = list(str(bin(offer)[2:]))
     output = inputSignal[::-1]
     while len(output) < 4:
@@ -192,6 +275,19 @@ def RightScreenControl(offer):
     return
 
 def trialList(trials,number):
+    """Builds a list of trials for a given block.
+
+    Takes the ratios of the offers to be presented and the corresponding number of time
+    each ratio is to be offered and iterates the ratio onto a list that many times, with
+    a binary bit at the end randomized to counterbalance offers by screen.
+
+    Args:
+       trials: A list of the trial ratios for a given session
+       number: a list of values each corresponding to one entry in trials denoting how
+       many times that trial is to occur in a given block
+    Returns:
+       trialList: the not-yet-randomized list of offers in a block
+    """
     trialList = []
     Trials = trials
     Number = number
@@ -210,6 +306,17 @@ def trialList(trials,number):
     return(trialList)
 
 def StateOne(thisITI,currentTrial):
+    """First stage of a trial in the touchscreen task.
+
+    Sends an output to each touchscreen telling them what the offer they are going to
+    display is, then waits for a random ITI off the user inputted list of ITIs.
+
+    Args:
+       thisITI: the next value on the list of randomized user entered ITIs
+       currentTrial: An array entry with what is to be displayed on each screen
+    Returns:
+       State: the current Stage of the trial
+    """
     State = 1
     if currentTrial[2] == 0:
         Record(['Offer (R/L): ' + str(currentTrial[1]) +'/'+str(currentTrial[0])])
@@ -228,6 +335,14 @@ def StateOne(thisITI,currentTrial):
     return(State)
 
 def StateTwo():
+    """Second stage of a trial in the touchscreen task.
+
+    Turns on a GPIO pin controlling a tone, then waits for a nosepoke to either pass
+    to the next stage of the trial, or default back to the first.
+
+    Returns:
+       State: the current stage of the trial
+    """
     State = 2
     GPIO.output(4, GPIO.HIGH)
     t0 = time.time()
@@ -243,6 +358,16 @@ def StateTwo():
     return(State)
 
 def StateThree(hold1):
+    """Third stage of a trial in the touchscreen task.
+
+    Checks to make sure the animal nosepokes for a long enough amount of time (in
+    this case 'long enough' is a user generated value in the settings file.
+
+    Args:
+       hold1: the duration for which the animal must nosepoke to turn the screen on
+    Returns:
+       State: the current stage of the trial
+    """
     State = 3
     holdtime = hold1
     poketime = 0
@@ -257,6 +382,16 @@ def StateThree(hold1):
     return(State)
 
 def StateFour(hold2):
+    """Fourth stage of a trial in the touchscreen task.
+
+    Makes sure the animal nosepokes for long enough to keep the screen on, then
+    changes the State to 5.
+
+    Args:
+       hold2: the duration for which an animal needs to nosepoke with the screens on
+    Returns:
+       State: the current stage of the trial
+    """
     State = 4
     t0 = time.time()
     holdTime = 0
@@ -274,6 +409,15 @@ def StateFour(hold2):
     return(State)
 
 def StateFive(currentTrial):
+    """Fifth stage of a trial in the touchscreen task.
+
+    Waits for input from the touchscreens then records the choice and rewards the animal.
+
+    Args:
+       currentTrial: array entry containing the offers/rewards the rats are choosing between.
+    Returns:
+       State: the current stage of the trial
+    """
     reward = currentTrial
     inputWait = 10 #this is how long the screens stay on waiting for input
     t0 = time.time()
@@ -306,6 +450,24 @@ def StateFive(currentTrial):
     return(State)
            
 def BlockLoop(sampleList, itiList,Number,hold1,hold2,trialCount):
+    """Runs one block of the touchscreen task, acts as the central hub between States.
+
+    Takes input that the MainLoop() has grabbed from settings, and then randomizes it into
+    a list of trials and ITIs to be run in that new order in the block. It then runs through each
+    trial in the lists, looping back on itself if the animal stops partwat through.
+
+    Args:
+       sampleList: A list of the trial ratios for a given session, to be associated with a
+       value from the number arg and added into a randomized list that many times.
+       itiList: list of ITIs for a given session, to be randomized
+       Number: a list of values each corresponding to one entry in trials denoting how
+       many times that trial is to occur in a given block
+       hold1: the duration for which the animal must nosepoke to turn the screen on
+       hold2: the duration for which the animal must continue to nosepoke with the screen on
+       trialCount: counter keeping track of the number of trials in the current session
+    Returns:
+       trialCount: counter keeping track of the number of trials in the current session
+    """
     global State
     Hold1=hold1
     Hold2=hold2
@@ -340,6 +502,11 @@ def BlockLoop(sampleList, itiList,Number,hold1,hold2,trialCount):
     return(trialCount)
 
 def MainLoop():
+    """Sets up the session, and checks to see if it has run through the requisite trials.
+
+    Clears the touchscreens, and then grabs the relevant information from the settings file. It then
+    creates an appropriately named data file, and passes the task off to blockloop to run each block.
+    """
     global fileName
     global nosepoke
     nosepoke = 0
@@ -353,5 +520,6 @@ def MainLoop():
     textFile.close()
     while trialCount < 200:
         trialCount = BlockLoop(sampleList, itiList, Number,hold1,hold2,trialCount)
+    print('Done!')
     return
 MainLoop()
