@@ -10,20 +10,55 @@ global nosepoke  #holds current state of the nosepoke
 global fileName #name of the datafile, extracted from settings
 
 
-GPIO.setup(18, GPIO.IN,pull_up_down=GPIO.PUD_DOWN) #nosepoke
-GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #left screen in
-GPIO.setup(12, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #right screen in
-GPIO.setup(4, GPIO.OUT) #tone
-GPIO.setup(5, GPIO.OUT) #leftscreen1
-GPIO.setup(6, GPIO.OUT) #leftscreen2
-GPIO.setup(13, GPIO.OUT) #Leftscreen3
-GPIO.setup(19, GPIO.OUT) #leftscreen4
-GPIO.setup(16, GPIO.OUT) #rightscreen1
-GPIO.setup(20, GPIO.OUT) #rightscreen2
-GPIO.setup(21, GPIO.OUT) #rightscreen3
-GPIO.setup(26, GPIO.OUT) #rightscreen4
-GPIO.setup(23, GPIO.OUT) #feeder one
-GPIO.setup(24, GPIO.OUT) #feeder two
+#The following section is just a way to change the GPIO mapping quickly
+#this first section makes the GPIO map avaliable to all functions
+global nose_poke
+global left_in
+global right_in
+global tone
+global left_1
+global left_2
+global left_3
+global left_4
+global right_1
+global right_2
+global right_3
+global right_4
+global feeder_1
+global feeder_2
+
+#this is where the mapping actually is, change the number to change the pin
+#the names are hopefully self explanatory for the most part
+nose_poke = 13
+left_in = 10
+right_in = 9
+tone = 5
+left_1 = 19
+left_2 = 26
+left_3 = 24
+left_4 = 23
+right_1 = 18
+right_2 = 21
+right_3 = 12
+right_4 = 16
+feeder_1 = 13
+feeder_2 = 14
+
+
+GPIO.setup(nose_poke, GPIO.IN,pull_up_down=GPIO.PUD_DOWN) #nosepoke
+GPIO.setup(left_in, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #left screen in
+GPIO.setup(right_in, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #right scr een in
+GPIO.setup(tone, GPIO.OUT) #tone
+GPIO.setup(left_1, GPIO.OUT) #leftscreen1
+GPIO.setup(left_2, GPIO.OUT) #leftscreen2
+GPIO.setup(left_3, GPIO.OUT) #Leftscreen3
+GPIO.setup(left_4, GPIO.OUT) #leftscreen4
+GPIO.setup(right_1, GPIO.OUT) #rightscreen1
+GPIO.setup(right_2, GPIO.OUT) #rightscreen2
+GPIO.setup(right_3, GPIO.OUT) #rightscreen3
+GPIO.setup(right_4, GPIO.OUT) #rightscreen4
+GPIO.setup(feeder_1, GPIO.OUT) #feeder one
+GPIO.setup(feeder_2, GPIO.OUT) #feeder two
 
 def trialParse(line):
     """Grabs and formats the trial list from the settings file.
@@ -43,12 +78,15 @@ def trialParse(line):
     parseline = []
     parseline = list(line)
     parseline = parseline[7:]
+    count = 0
     for i in parseline:
         if i == ',':
             entry.append(int(selection))
             sideVar = random.randint(0,1)
             entry.append(sideVar)
+            entry.append(count)
             offerList.append(entry)
+            count = count + 1
             entry =[]
             selection = ''
         elif i.isdigit():
@@ -59,6 +97,7 @@ def trialParse(line):
     entry.append(int(selection))
     sideVar = random.randint(0,1)
     entry.append(sideVar)
+    entry.append(count)
     offerList.append(entry)
     return(offerList)
 
@@ -138,15 +177,15 @@ def EventChecker():
     """
     eventList = []
     global nosepoke
-    if GPIO.input(18) and nosepoke == 0:
+    if GPIO.input(nose_poke) and nosepoke == 0:
         eventList.append('nosepoke on')
         nosepoke = 1
-    if GPIO.input(18) == False and nosepoke == 1:
+    if GPIO.input(nose_poke) == False and nosepoke == 1:
         eventList.append('nosepoke off')
         nosepoke = 0
-    if GPIO.input(22):
+    if GPIO.input(left_in):
         eventList.append('left screen')
-    if GPIO.input(12):
+    if GPIO.input(right_in):
         eventList.append('right screen')
     Record(eventList)
     return()
@@ -164,22 +203,30 @@ def Feeder(FeederNumber, PelletNumber):
        for their selection
     """
     if FeederNumber == 1:
-        control = 23
+        control = feeder_1
     if FeederNumber == 2:
-        control = 24
+        control = feeder_2
     GPIO.output(control, GPIO.HIGH)
     time.sleep(PelletNumber*.8)
     GPIO.output(control, GPIO.LOW)
     return
 
 def ScreensOn():
-    GPIO.output(19, GPIO.HIGH)
-    GPIO.output(26,GPIO.HIGH)
+    GPIO.output(left_4, GPIO.HIGH)
+    GPIO.output(right_4,GPIO.HIGH)
     return
 
 def ScreensOff():
-    GPIO.output(19, GPIO.LOW)
-    GPIO.output(26,GPIO.LOW)
+    GPIO.output(left_4, GPIO.LOW)
+    GPIO.output(right_4,GPIO.LOW)
+    GPIO.output(left_1, GPIO.HIGH)
+    GPIO.output(left_4,GPIO.HIGH)
+    GPIO.output(right_1, GPIO.HIGH)
+    GPIO.output(right_4,GPIO.HIGH)
+    GPIO.output(left_1, GPIO.LOW)
+    GPIO.output(left_4,GPIO.LOW)
+    GPIO.output(right_1, GPIO.LOW)
+    GPIO.output(right_4,GPIO.LOW)
     return
 
 def Record(entry):
@@ -221,6 +268,7 @@ def randomList(sampleList):
     return(randomList)
 
 def LeftScreenControl(offer):
+    
     """Sends the signal for what is to be displayed on the left screen to the arduino
 
     Takes a number corresponding to a given offer and converts it to binary, before
@@ -233,21 +281,22 @@ def LeftScreenControl(offer):
     while len(output) < 4:
         output.append('0')
     if output[0] == '1':
-        GPIO.output(5, GPIO.HIGH)
+        GPIO.output(left_1, GPIO.HIGH)
     if output[1] == '1':
-        GPIO.output(6, GPIO.HIGH)
+        GPIO.output(left_2, GPIO.HIGH)
     if output[2] == '1':
-        GPIO.output(13, GPIO.HIGH)
+        GPIO.output(left_3, GPIO.HIGH)
     if output[3] == '1':
-        GPIO.output(19, GPIO.HIGH)
-    time.sleep(2)
-    GPIO.output(5,GPIO.LOW)
-    GPIO.output(6,GPIO.LOW)
-    GPIO.output(13,GPIO.LOW)
-    GPIO.output(19,GPIO.LOW)
+        GPIO.output(left_4, GPIO.HIGH)
+    time.sleep(1)
+    GPIO.output(left_1,GPIO.LOW)
+    GPIO.output(left_2,GPIO.LOW)
+    GPIO.output(left_3,GPIO.LOW)
+    GPIO.output(left_4,GPIO.LOW)
     return
 
 def RightScreenControl(offer):
+    
     """Sends the signal for what is to be displayed on the right screen to the arduino.
 
     Takes a number corresponding to a given offer and converts it to binary, before
@@ -260,18 +309,18 @@ def RightScreenControl(offer):
     while len(output) < 4:
         output.append('0')
     if (output[0]) == '1':
-        GPIO.output(16, GPIO.HIGH)
+        GPIO.output(right_1, GPIO.HIGH)
     if (output[1]) == '1':
-        GPIO.output(20, GPIO.HIGH)
+        GPIO.output(right_2, GPIO.HIGH)
     if (output[2]) == '1':
-        GPIO.output(21, GPIO.HIGH)
+        GPIO.output(right_3, GPIO.HIGH)
     if (output[3]) == '1':
-        GPIO.output(26, GPIO.HIGH)
-    time.sleep(2)
-    GPIO.output(16,GPIO.LOW)
-    GPIO.output(20,GPIO.LOW)
-    GPIO.output(21,GPIO.LOW)
-    GPIO.output(26,GPIO.LOW)
+        GPIO.output(right_4, GPIO.HIGH)
+    time.sleep(1)
+    GPIO.output(right_1,GPIO.LOW)
+    GPIO.output(right_2,GPIO.LOW)
+    GPIO.output(right_3,GPIO.LOW)
+    GPIO.output(right_4,GPIO.LOW)
     return
 
 def trialList(trials,number):
@@ -320,18 +369,19 @@ def StateOne(thisITI,currentTrial):
     State = 1
     if currentTrial[2] == 0:
         Record(['Offer (R/L): ' + str(currentTrial[1]) +'/'+str(currentTrial[0])])
-        LeftScreenControl(currentTrial[0])
-        RightScreenControl(currentTrial[1])
+        LeftScreenControl(currentTrial[0]+1)
+        RightScreenControl(currentTrial[1]+9)
     if currentTrial[2] == 1:
         Record(['Offer (R/L): ' + str(currentTrial[0]) +'/'+str(currentTrial[1])])
-        LeftScreenControl(currentTrial[1])
-        RightScreenControl(currentTrial[0])
+        LeftScreenControl(currentTrial[1]+9)
+        RightScreenControl(currentTrial[0]+1)
     t0 = time.time()
     timer = 0
     while timer < thisITI:
         timer = time.time() - t0
         EventChecker()
     State = 2
+    time.sleep(6)
     return(State)
 
 def StateTwo():
@@ -344,17 +394,17 @@ def StateTwo():
        State: the current stage of the trial
     """
     State = 2
-    GPIO.output(4, GPIO.HIGH)
+    GPIO.output(tone, GPIO.HIGH)
     t0 = time.time()
     timeout = 1
     State = 1
     while (timeout < 4):
         timeout = time.time() - t0
-        if (GPIO.input(18)):
+        if (GPIO.input(nose_poke)):
             timout = -1
             State = 3
     if State == 1:
-        GPIO.output(4, GPIO.LOW)
+        GPIO.output(tone, GPIO.LOW)
     return(State)
 
 def StateThree(hold1):
@@ -372,13 +422,13 @@ def StateThree(hold1):
     holdtime = hold1
     poketime = 0
     t0 = time.time()
-    while (GPIO.input(18)) and poketime < holdtime:
+    while (GPIO.input(nose_poke)) and poketime < holdtime:
         poketime = time.time() - t0
         EventChecker()
     if (poketime >= holdtime):
         State = 4
     else:
-         State = 2
+         State = 1
     return(State)
 
 def StateFour(hold2):
@@ -397,27 +447,19 @@ def StateFour(hold2):
     holdTime = 0
     screenHold = hold2
     ScreensOn()
-    while GPIO.input(18) and holdTime < screenHold:
+    while GPIO.input(nose_poke) and holdTime < screenHold:
         holdTime = time.time()-t0
         EventChecker()
     if holdTime < screenHold:
-        State = 2
+        State = 1
         ScreensOff()
     elif holdTime >= screenHold:
         State = 5
-    GPIO.output(4, GPIO.LOW)
+    GPIO.output(tone, GPIO.LOW)
     return(State)
 
-def StateFive(currentTrial):
-    """Fifth stage of a trial in the touchscreen task.
+def StateFive(currentTrial,trial_totals):
 
-    Waits for input from the touchscreens then records the choice and rewards the animal.
-
-    Args:
-       currentTrial: array entry containing the offers/rewards the rats are choosing between.
-    Returns:
-       State: the current stage of the trial
-    """
     reward = currentTrial
     inputWait = 10 #this is how long the screens stay on waiting for input
     t0 = time.time()
@@ -425,49 +467,38 @@ def StateFive(currentTrial):
     State = 2
     while timeElapsed < inputWait:
         timeElapsed = time.time() - t0
-        if GPIO.input(22):
+        if GPIO.input(left_in):
             timeElapsed = inputWait + 1
-            entry = ['Chose left']
             if reward[2] == 0:
+                entry = ['Chose left Type 1']
+                trial_totals[reward[3]*2] = trial_totals[reward[3]*2] + 1
                 ScreensOff()
                 Feeder(1,reward[0])
             elif reward[2] == 1:
+                entry = ['Chose left Type 2']
+                trial_totals[reward[3]*2 +1] = trial_totals[reward[3]*2+1] + 1
                 ScreensOff()
                 Feeder(2, reward[1])
             Record(entry)
             State = 6
-        if GPIO.input(12):
+        if GPIO.input(right_in):
             timeElapsed = inputWait + 1
-            entry = ['Chose right']
             if reward[2] == 0:
+                entry = ['Chose Right Type 1']
+                trial_totals[reward[3]*2] = trial_totals[reward[3]*2+1] + 1
                 ScreensOff()
-                Feeder(2,reward[1])
+                Feeder(2,reward[0])
             elif reward[2] == 1:
+                entry = ['Chose Right Type 2']
+                trial_totals[reward[3]*2 +1] = trial_totals[reward[3]*2] + 1
                 ScreensOff()
-                Feeder(1, reward[0])
+                Feeder(1, reward[1])
             Record(entry)
             State = 6
-    return(State)
-           
-def BlockLoop(sampleList, itiList,Number,hold1,hold2,trialCount):
-    """Runs one block of the touchscreen task, acts as the central hub between States.
+    return(State, trial_totals)
 
-    Takes input that the MainLoop() has grabbed from settings, and then randomizes it into
-    a list of trials and ITIs to be run in that new order in the block. It then runs through each
-    trial in the lists, looping back on itself if the animal stops partwat through.
+def BlockLoop(trial_totals,sampleList, itiList,Number,hold1,hold2,trialCount):
 
-    Args:
-       sampleList: A list of the trial ratios for a given session, to be associated with a
-       value from the number arg and added into a randomized list that many times.
-       itiList: list of ITIs for a given session, to be randomized
-       Number: a list of values each corresponding to one entry in trials denoting how
-       many times that trial is to occur in a given block
-       hold1: the duration for which the animal must nosepoke to turn the screen on
-       hold2: the duration for which the animal must continue to nosepoke with the screen on
-       trialCount: counter keeping track of the number of trials in the current session
-    Returns:
-       trialCount: counter keeping track of the number of trials in the current session
-    """
     global State
     Hold1=hold1
     Hold2=hold2
@@ -495,18 +526,21 @@ def BlockLoop(sampleList, itiList,Number,hold1,hold2,trialCount):
                 State = StateFour(Hold2)
                 EventChecker()
             if State == 5:
-                State = StateFive(currentTrial)
+                State, trial_totals = StateFive(currentTrial,trial_totals)
+                data1 = trial_totals[::2]
+                data2 = trial_totals[1::2]
+                readout = [data1[i]+data2[i] for i in range(len(data1))]
+                type1 = currentTrial[0]
+                type2 = currentTrial[1]
+                print('Type 1: '+ str(type1) +'  Type 2: '+ str(type2))
+                print(data1)
+                print(readout)
                 EventChecker()
         Count = Count + 1
         trialCount = trialCount+1
-    return(trialCount)
+    return(trialCount,trial_totals)
 
 def MainLoop():
-    """Sets up the session, and checks to see if it has run through the requisite trials.
-
-    Clears the touchscreens, and then grabs the relevant information from the settings file. It then
-    creates an appropriately named data file, and passes the task off to blockloop to run each block.
-    """
     global fileName
     global nosepoke
     nosepoke = 0
@@ -516,10 +550,26 @@ def MainLoop():
     fileName = str(date)+str(identifier)
     sampleList = trialList(trials,Number)
     trialCount = 0
+    trial_display = []
+    for x in trials:
+        listcount = 0
+        for g in x:
+            if listcount < 2:
+                trial_display.append(g)
+            listcount = listcount + 1
+    trial_totals = []
+    i = 0
+    while i < len(trials):
+        trial_totals.append(0)
+        trial_totals.append(0)
+        i = i + 1
     textFile = open(fileName, "w")
     textFile.close()
     while trialCount < 200:
-        trialCount = BlockLoop(sampleList, itiList, Number,hold1,hold2,trialCount)
+        print(trial_display)
+        trialCount,trial_totals = BlockLoop(trial_totals,sampleList, itiList, Number,hold1,hold2,trialCount)
+ 
     print('Done!')
     return
 MainLoop()
+
