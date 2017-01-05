@@ -4,7 +4,6 @@ GPIO.setmode(GPIO.BCM)
 import time
 import random
 import copy
-import random
 from random import randrange
 global nosepoke  #holds current state of the nosepoke
 global fileName #name of the datafile, extracted from settings
